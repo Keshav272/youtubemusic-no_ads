@@ -8,3 +8,8 @@ Run this single command in your terminal:
 
 ```bash
 curl -sSL [https://raw.githubusercontent.com/Keshav272/youtubemusic-no_ads/main/install-ytmusic.sh](https://raw.githubusercontent.com/Keshav272/youtubemusic-no_ads/main/install-ytmusic.sh) | bash
+
+## Quick Uninstall
+
+```bash
+curl -sSL [https://raw.githubusercontent.com/Keshav272/youtubemusic-no_ads/main/uninstall-ytmusic.sh](https://raw.githubusercontent.com/Keshav272/youtubemusic-no_ads/main/uninstall-ytmusic.sh) | bash

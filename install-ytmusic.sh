@@ -1,47 +1,34 @@
-cat << 'EOF' > install-ytmusic.sh
-#!/bin/bash
-
-# Exit on error
+#!/usr/bin/env bash
 set -e
 
-# Detect current user home directory dynamically
 USER_HOME="$HOME"
 
 echo "Starting YouTube Music setup..."
 
-# Check if Brave Browser is installed
-if ! command -v brave-browser &> /dev/null; then
-    echo "Brave Browser not found. Installing..."
+if ! command -v brave-browser >/dev/null; then
+    echo "Installing Brave Browser..."
     sudo dnf install -y dnf-plugins-core
-    sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+    sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+    sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
     sudo dnf install -y brave-browser
-else
-    echo "Brave Browser is already installed, skipping..."
 fi
 
-echo "Creating application directories..."
-mkdir -p "$USER_HOME/.local/share/applications" "$USER_HOME/.local/share/icons"
+mkdir -p "$USER_HOME/.local/share/applications"
+mkdir -p "$USER_HOME/.local/share/icons"
 
-echo "Downloading YouTube Music icon..."
-curl -sL https://raw.githubusercontent.com/th-ch/youtube-music/master/assets/generated/icons/png/512x512.png -o "$USER_HOME/.local/share/icons/youtube-music.png"
+curl -fLo "$USER_HOME/.local/share/icons/youtube-music.png" \
+https://raw.githubusercontent.com/th-ch/youtube-music/master/assets/generated/icons/png/512x512.png
 
-echo "Creating desktop entry..."
-cat << DESKTOPEOF > "$USER_HOME/.local/share/applications/youtube-music-brave.desktop"
+cat > "$USER_HOME/.local/share/applications/youtube-music.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Name=YouTube Music
-Comment=Launch YouTube Music in Brave Web App mode
+Comment=Launch YouTube Music
 Exec=brave-browser --app=https://music.youtube.com
 Icon=$USER_HOME/.local/share/icons/youtube-music.png
 Terminal=false
 Type=Application
-Categories=Audio;Music;Player;AudioVideo;
-DESKTOPEOF
-
-echo "Updating desktop database..."
-update-desktop-database "$USER_HOME/.local/share/applications"
-
-echo "Setup complete!"
+Categories=Audio;Music;AudioVideo;
 EOF
 
-chmod +x install-ytmusic.sh
+echo "Done!"

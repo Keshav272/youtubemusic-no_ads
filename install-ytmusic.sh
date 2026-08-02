@@ -5,12 +5,28 @@ USER_HOME="$HOME"
 
 echo "Starting YouTube Music setup..."
 
-if ! command -v brave-browser >/dev/null; then
+# Detect package manager and install Brave if missing
+if ! command -v brave-browser >/dev/null 2>&1; then
     echo "Installing Brave Browser..."
-    sudo dnf install -y dnf-plugins-core
-    sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-    sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
-    sudo dnf install -y brave-browser
+
+    if command -v apt >/dev/null 2>&1; then
+        sudo apt update
+        sudo apt install -y curl gnupg
+        sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list >/dev/null
+        sudo apt update
+        sudo apt install -y brave-browser
+
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y dnf-plugins-core
+        sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+        sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+        sudo dnf install -y brave-browser
+
+    else
+        echo "Unsupported Linux distribution."
+        exit 1
+    fi
 fi
 
 mkdir -p "$USER_HOME/.local/share/applications"
@@ -31,4 +47,7 @@ Type=Application
 Categories=Audio;Music;AudioVideo;
 EOF
 
-echo "Done!"
+chmod +x "$USER_HOME/.local/share/applications/youtube-music.desktop"
+
+echo "Installation complete!"
+echo "You can now launch YouTube Music from your applications menu."

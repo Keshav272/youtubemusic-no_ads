@@ -88,7 +88,7 @@ else
         apt)
             sudo apt update || error 12 "Failed to update package lists."
 
-            sudo apt install -y curl gnupg gpg || \
+            sudo apt install -y curl gnupg || \
                 error 12 "Failed to install required dependencies."
 
             sudo mkdir -p /usr/share/keyrings
@@ -201,8 +201,10 @@ echo "Application : $APP_NAME"
 echo "Detected OS : $OS"
 echo "Browser     : Brave Browser"
 echo "Launcher    : $DESKTOP_FILE"
+echo "Version     : 1.0"
+
 echo
-echo "Launch YouTube Music from your Applications Menu."
+echo "You can now launch YouTube Music from your Applications Menu."
 echo
-echo "Thank you for using YouTube Music (No Ads)!"
+echo "Enjoy your ad-free music! 🎵"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

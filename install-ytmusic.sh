@@ -8,113 +8,201 @@ ICON_URL="https://raw.githubusercontent.com/th-ch/youtube-music/master/assets/ge
 USER_HOME="$HOME"
 APP_DIR="$USER_HOME/.local/share/applications"
 ICON_DIR="$USER_HOME/.local/share/icons"
+
 DESKTOP_FILE="$APP_DIR/youtube-music.desktop"
 ICON_FILE="$ICON_DIR/youtube-music.png"
 
-error() {
-    code="$1"
-    shift
+banner() {
     echo
-    echo "[ERROR $code] $*"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "        🎵 YouTube Music Installer"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo
+}
+
+step() {
+    echo "➜ $1"
+}
+
+success() {
+    echo "   ✓ $1"
+}
+
+error() {
+    local code="$1"
+    shift
+
+    echo
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "❌ ERROR $code"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "$*"
+    echo
+
     exit "$code"
 }
 
-echo "==> Installing $APP_NAME..."
+banner
 
 mkdir -p "$APP_DIR" "$ICON_DIR" || error 10 "Failed to create application directories."
 
-OS=""
-PKG=""
+step "Detecting operating system..."
 
-if command -v apt >/dev/null 2>&1; then
-    OS="Debian/Ubuntu"
-    PKG="apt"
-elif command -v dnf >/dev/null 2>&1; then
-    OS="Fedora"
-    PKG="dnf"
-elif command -v pacman >/dev/null 2>&1; then
-    OS="Arch"
-    PKG="pacman"
-elif command -v zypper >/dev/null 2>&1; then
-    OS="openSUSE"
-    PKG="zypper"
-else
-    error 30 "Unsupported Linux distribution."
+if [ ! -f /etc/os-release ]; then
+    error 30 "Unable to detect Linux distribution."
 fi
 
-echo "Detected: $OS"
+. /etc/os-release
 
-if ! command -v brave-browser >/dev/null 2>&1; then
-    echo "Installing Brave Browser..."
+case "$ID" in
+    ubuntu|debian|linuxmint|pop)
+        OS="Debian/Ubuntu"
+        PKG="apt"
+        ;;
+    fedora)
+        OS="Fedora"
+        PKG="dnf"
+        ;;
+    arch|manjaro|endeavouros)
+        OS="Arch Linux"
+        PKG="pacman"
+        ;;
+    opensuse*|sles)
+        OS="openSUSE"
+        PKG="zypper"
+        ;;
+    *)
+        error 30 "Unsupported Linux distribution: $ID"
+        ;;
+esac
+
+success "$OS detected."
+
+step "Checking Brave Browser..."
+if command -v brave-browser >/dev/null 2>&1; then
+    success "Brave Browser is already installed."
+else
+    step "Installing Brave Browser..."
 
     case "$PKG" in
         apt)
-            sudo apt update
-            sudo apt install -y curl gnupg
+            sudo apt update || error 12 "Failed to update package lists."
+
+            sudo apt install -y curl gnupg gpg || \
+                error 12 "Failed to install required dependencies."
+
             sudo mkdir -p /usr/share/keyrings
-            curl -fsSLo /tmp/brave-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg || error 12 "Failed to download Brave signing key."
-            sudo mv /tmp/brave-keyring.gpg /usr/share/keyrings/brave-browser-archive-keyring.gpg
 
-            echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | \
-            sudo tee /etc/apt/sources.list.d/brave-browser-release.list >/dev/null
+            curl -fsSL \
+                https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg \
+                | sudo gpg --dearmor -o /usr/share/keyrings/brave-browser-archive-keyring.gpg \
+                || error 12 "Failed to download Brave signing key."
 
-            sudo apt update
-            sudo apt install -y brave-browser || error 12 "Failed to install Brave Browser."
+            echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" \
+                | sudo tee /etc/apt/sources.list.d/brave-browser-release.list >/dev/null
+
+            sudo apt update || error 12 "Failed to refresh repositories."
+
+            sudo apt install -y brave-browser || \
+                error 12 "Failed to install Brave Browser."
             ;;
+
         dnf)
-            sudo dnf install -y dnf-plugins-core
-            sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-            sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
-            sudo dnf install -y brave-browser || error 12 "Failed to install Brave Browser."
+            sudo dnf install -y dnf-plugins-core || \
+                error 12 "Failed to install dnf plugins."
+
+            sudo dnf config-manager --add-repo \
+                https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo || \
+                error 12 "Failed to add Brave repository."
+
+            sudo rpm --import \
+                https://brave-browser-rpm-release.s3.brave.com/brave-core.asc || \
+                error 12 "Failed to import Brave signing key."
+
+            sudo dnf install -y brave-browser || \
+                error 12 "Failed to install Brave Browser."
             ;;
-        pacman)
-            if command -v yay >/dev/null 2>&1; then
-                yay -S --noconfirm brave-bin || error 12 "Failed to install Brave Browser."
-            elif command -v paru >/dev/null 2>&1; then
-                paru -S --noconfirm brave-bin || error 12 "Failed to install Brave Browser."
-            else
-                sudo pacman -Sy --noconfirm brave || error 12 "Failed to install Brave Browser."
-            fi
-            ;;
+
+pacman)
+    if command -v yay >/dev/null 2>&1; then
+        yay -S --noconfirm brave-bin || \
+            error 12 "Failed to install Brave Browser."
+    elif command -v paru >/dev/null 2>&1; then
+        paru -S --noconfirm brave-bin || \
+            error 12 "Failed to install Brave Browser."
+    else
+        sudo pacman -Sy --noconfirm brave || \
+            error 12 "Failed to install Brave Browser."
+    fi
+    ;;
         zypper)
-            sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
-            sudo zypper addrepo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-            sudo zypper --gpg-auto-import-keys refresh
-            sudo zypper install -y brave-browser || error 12 "Failed to install Brave Browser."
+            sudo rpm --import \
+                https://brave-browser-rpm-release.s3.brave.com/brave-core.asc || \
+                error 12 "Failed to import Brave signing key."
+
+            sudo zypper addrepo \
+                https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo || \
+                error 12 "Failed to add Brave repository."
+
+            sudo zypper --gpg-auto-import-keys refresh || \
+                error 12 "Failed to refresh repositories."
+
+            sudo zypper install -y brave-browser || \
+                error 12 "Failed to install Brave Browser."
             ;;
     esac
+
+    success "Brave Browser installed."
 fi
 
-echo "Downloading icon..."
-curl -fsSL "$ICON_URL" -o "$ICON_FILE" || error 11 "Failed to download the YouTube Music icon."
+step "Downloading YouTube Music icon..."
 
-echo "Creating launcher..."
+curl -fsSL "$ICON_URL" -o "$ICON_FILE" || \
+    error 11 "Failed to download the YouTube Music icon."
 
-cat > "$DESKTOP_FILE" <<EOF || error 13 "Failed to create desktop launcher."
+success "Icon downloaded."
+
+step "Creating desktop launcher..."
+
+cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=YouTube Music
-Comment=Listen to YouTube Music
-Exec=brave-browser --app=https://music.youtube.com
+GenericName=Music Player
+Comment=Listen to YouTube Music without ads using Brave Browser
+Exec=brave-browser --new-window --app=https://music.youtube.com
 Icon=$ICON_FILE
 Terminal=false
 StartupNotify=true
-StartupWMClass=music.youtube.com
+StartupWMClass=Brave-browser
 Categories=Audio;Music;AudioVideo;
-Keywords=Music;YouTube;Audio;
+Keywords=YouTube;Music;Audio;Streaming;
 EOF
 
-chmod +x "$DESKTOP_FILE" || error 14 "Failed to set launcher permissions."
+chmod +x "$DESKTOP_FILE" || \
+    error 14 "Failed to make launcher executable."
+
+success "Desktop launcher created."
+
+step "Refreshing desktop database..."
 
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APP_DIR" >/dev/null 2>&1 || true
 fi
 
+success "Desktop database refreshed."
 echo
-echo "=================================="
-echo "Installation Complete!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "           ✅ Installation Complete"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo
+echo "Application : $APP_NAME"
 echo "Detected OS : $OS"
-echo "Browser     : Brave"
+echo "Browser     : Brave Browser"
 echo "Launcher    : $DESKTOP_FILE"
-echo "=================================="
+echo
+echo "Launch YouTube Music from your Applications Menu."
+echo
+echo "Thank you for using YouTube Music (No Ads)!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
